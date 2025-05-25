@@ -1,4 +1,4 @@
-# 🗑️ Clean Workflow Logs Action
+# 🗑️ Clean Workflow Runs Action
 
 A GitHub Action to clean up old workflow runs and save storage space in your repository.
 
@@ -13,7 +13,7 @@ A GitHub Action to clean up old workflow runs and save storage space in your rep
 ## Usage
 
 ```yaml
-name: Clean Workflow Logs
+name: Clean Workflow Runs
 
 on:
   schedule:
