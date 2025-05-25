@@ -1,0 +1,145 @@
+name: "🔖 Stable Release"
+run-name: >
+  🚀 Stable release: ${{ (github.event.inputs.bump_version == 'yes' && 'Auto Bump') || github.event.inputs.release_version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: |
+          The custom release version (e.g., 1.0.0).
+          Use "latest" to automatically use the latest Git tag.
+          If "bump_version" is set to "yes", this will be ignored.
+        required: false
+        default: 'latest' # Changed default
+
+      bump_version:
+        description: |
+          Whether bump the version automatically.
+          If this is set to "yes", the release version will be ignored
+          and the version will be bumped automatically.
+        required: false
+        type: choice
+        options: [ 'yes', 'no' ]
+        default: 'yes'
+
+permissions:
+  contents: write
+
+env:
+  # VERSION is initialized from input. It might be 'latest', '1.0.0', or 'v1.2.3'.
+  # This will be updated by the "Determine and Normalize Release Version" step.
+  RELEASE_VERSION_INPUT: ${{ github.event.inputs.release_version }}
+  RELEASE_VERSION: ''
+  RELEASE_TAG: ''
+  RELEASE_CHANGELOG: ''
+
+jobs:
+  release:
+    name: "🛠️ Version & Release"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🕒 Get current date and time in Beijing timezone
+        shell: bash
+        run: |
+          BEIJING_TIME=$(TZ='Asia/Shanghai' date +"%Y-%m-%d-%H-%M-%S")
+          echo "🚀 start at Beijing time: $BEIJING_TIME"
+
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          clean: true
+          fetch-depth: 0 # Required to fetch all tags for latest tag detection
+
+      - name: 🏷️ Search old version
+        if: ${{ github.event.inputs.bump_version == 'no' }}
+        id: search_version
+        run: |
+          set -e
+
+          if [[ "${RELEASE_VERSION_INPUT}" == "latest" ]]; then
+            VERSION_FROM_TAG_WITH_PREFIX=$(git tag --sort=-v:refname | head -n 1)
+            if [ -z "$VERSION_FROM_TAG_WITH_PREFIX" ]; then
+              echo "::warning::No Git tags found. Defaulting version to 0.0.0 for this run."
+              echo "RELEASE_VERSION=0.0.0" >> $GITHUB_ENV
+              echo "RELEASE_TAG=v$RELEASE_VERSION" >> $GITHUB_ENV
+            else
+              # Remove 'v' prefix if it exists
+              NORMALIZED_TAG_VERSION=${VERSION_FROM_TAG_WITH_PREFIX#v}
+              echo "Latest tag found: $VERSION_FROM_TAG_WITH_PREFIX, Normalized version: $NORMALIZED_TAG_VERSION"
+              echo "RELEASE_VERSION=${NORMALIZED_TAG_VERSION}" >> $GITHUB_ENV
+              echo "RELEASE_TAG=v$RELEASE_VERSION" >> $GITHUB_ENV
+            fi
+          else
+            # User provided a specific version. Normalize it by removing a potential 'v' prefix.
+            NORMALIZED_INPUT_VERSION=${RELEASE_VERSION_INPUT#v}
+            echo "User input version: '${RELEASE_VERSION_INPUT}', Normalized to: '${NORMALIZED_INPUT_VERSION}' for checking."
+
+            # Check if the tag "v<normalized_version>" exists. This is the canonical tag format.
+            if git ls-remote --tags --exit-code origin "refs/tags/v${NORMALIZED_INPUT_VERSION}" > /dev/null; then
+              echo "Tag 'v${NORMALIZED_INPUT_VERSION}' found."
+              echo "RELEASE_VERSION=${NORMALIZED_INPUT_VERSION}" >> $GITHUB_ENV
+              echo "RELEASE_TAG=v$RELEASE_VERSION" >> $GITHUB_ENV
+            else
+              # If "v<normalized_version>" is not found, it's an error, as this is the expected format.
+              echo "::error::Release version tag 'v${NORMALIZED_INPUT_VERSION}' not found for input '${RELEASE_VERSION_INPUT}'. Please ensure the tag exists in the format vX.Y.Z."
+              exit 1
+            fi
+          fi
+
+      - name: ⬆️ Bump version
+        if: ${{ github.event.inputs.bump_version == 'yes' }}
+        id: bump_version
+        uses: TriPSs/conventional-changelog-action@v6
+        with:
+          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
+          git-message: 'Bump release to {version}'
+          git-user-name: diverger
+          git-user-email: diverger@live.cn
+          output-file: 'CHANGELOG.md'
+          skip-version-file: 'false'
+          skip-on-empty: 'false'
+          skip-commit: 'false'
+          skip-ci: 'false'
+          skip-tag: 'false'
+          version-file: 'stable-release.json'
+          pre-release: 'false'
+          git-branch: 'main'
+          tag-prefix: 'v'
+          pre-release-identifier: 'trunk'
+
+      - name: 📝 Get version from bump_version
+        if: ${{ github.event.inputs.bump_version == 'yes' && steps.bump_version.conclusion == 'success'}}
+        id: read_version
+        run: |
+          set -e
+          echo "RELEASE_VERSION=${{ steps.bump_version.outputs.version }}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${{ steps.bump_version.outputs.tag }}" >> $GITHUB_ENV
+          echo "RELEASE_CHANGELOG=${{ steps.bump_version.outputs.changelog }}" >> $GITHUB_ENV
+
+      # - name: 🏗️ Create empty release or modify a release existed
+      #   id: create_release
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: ${{ env.RELEASE_TAG }}
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     append_body: ${{ env.RELEASE_CHANGELOG }}
+      #     # target_commitish: main
+      #     draft: true
+
+      - name: 🏗️ Create empty release or modify a release existed
+        id: create_release
+        uses: ncipollo/release-action@v1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag: "${{ env.RELEASE_TAG }}"
+          body: "${{ env.RELEASE_CHANGELOG }}"
+          omitBody: ${{ env.RELEASE_CHANGELOG == '' && true || false }}
+          omitName: true
+          makeLatest: false
+          omitPrereleaseDuringUpdate: true
+          allowUpdates: true
+          omitDraftDuringUpdate: true
+          draft: true
