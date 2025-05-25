@@ -44,6 +44,21 @@ jobs:
 | `dry_run` | Only show what would be deleted | `false` | No |
 | `github_token` | GitHub token with actions:write permissions | `${{ github.token }}` | No |
 
+> [!NOTE]
+> The `dry_run` parameter defaults to `false`. Set it to `true` to preview what would be deleted without actually deleting anything.
+
+> [!TIP]
+> For regular maintenance, consider setting `runs_older_than` to 30+ days and `runs_to_keep` to 5-10 runs per workflow.
+
+> [!IMPORTANT]
+> This action requires `actions: write` permissions to delete workflow runs.
+
+> [!WARNING]
+> Deleted workflow runs cannot be recovered. Always test with `dry_run: true` first.
+
+> [!CAUTION]
+> Be careful when setting `runs_to_keep` to 0, as this will delete all runs older than the specified days.
+
 ## Outputs
 
 | Output | Description |
