@@ -13,7 +13,7 @@ inputs:
     required: false
   dry_run:
     description: 'Only show what would be deleted (dry run)'
-    default: 'false'
+    default: 'true'
     required: false
   github_token:
     description: 'GitHub token with actions:write permissions'
