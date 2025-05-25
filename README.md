@@ -45,7 +45,7 @@ jobs:
 | `github_token` | GitHub token with actions:write permissions | `${{ github.token }}` | No |
 
 > [!NOTE]
-> The `dry_run` parameter defaults to `true`. It will delete nothing and you can preview in the log output to see what would be deleted.
+> The `dry_run` parameter defaults to `true`. So by default it will delete nothing and you can preview in the log output to see what would be deleted.
 
 > [!TIP]
 > For regular maintenance, consider setting `runs_older_than` to 30+ days and `runs_to_keep` to 5-10 runs per workflow.
