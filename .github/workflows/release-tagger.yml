@@ -1,0 +1,37 @@
+name: Release Tagger
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on specific version tags like v1.0.0, v1.2.3, etc.
+
+permissions:
+  contents: write # Allow the workflow to push tags
+
+jobs:
+  tag_major_version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
+      - name: Get Major Version Tag
+        id: get_major_tag
+        run: |
+          TAG_NAME="${{ github.ref_name }}" # e.g., v1.0.0
+          MAJOR_VERSION=$(echo "$TAG_NAME" | cut -d. -f1) # e.g., v1
+          echo "Pushed tag: $TAG_NAME"
+          echo "Major version tag: $MAJOR_VERSION"
+          echo "major_tag=$MAJOR_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update Major Version Tag
+        run: |
+          MAJOR_TAG="${{ steps.get_major_tag.outputs.major_tag }}"
+          TAG_NAME="${{ github.ref_name }}"
+          echo "Updating tag '$MAJOR_TAG' to point to '$TAG_NAME' (${{ github.sha }})"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag -f "$MAJOR_TAG" "$TAG_NAME" # Create or force update the major tag
+          git push origin "$MAJOR_TAG" --force # Push the major tag, force overwrite if it exists
