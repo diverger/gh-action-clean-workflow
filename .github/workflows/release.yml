@@ -94,7 +94,6 @@ jobs:
         id: bump_version
         uses: TriPSs/conventional-changelog-action@v6
         with:
-          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
           git-message: 'Bump release to {version}'
           git-user-name: diverger
           git-user-email: diverger@live.cn
