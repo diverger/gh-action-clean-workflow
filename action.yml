@@ -1,6 +1,9 @@
 name: '🗑️ Clean Workflow Run Logs'
 description: 'Clean up old GitHub Actions workflow runs to save storage space'
 author: 'diverger'
+branding:
+  icon: 'trash-2'
+  color: 'red'
 
 inputs:
   runs_older_than:
@@ -12,7 +15,7 @@ inputs:
     default: '0'
     required: false
   dry_run:
-    description: 'Only show what would be deleted (dry run)'
+    description: 'Only show what would be deleted (dry run, see the output in the run log)'
     default: 'true'
     required: false
   github_token:
@@ -188,6 +191,3 @@ runs:
           echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
         fi
 
-branding:
-  icon: 'trash-2'
-  color: 'red'
