@@ -41,11 +41,11 @@ jobs:
 |-------|-------------|---------|----------|
 | `runs_older_than` | Number of days old to delete | `21` | No |
 | `runs_to_keep` | Number of latest runs to keep per workflow | `0` | No |
-| `dry_run` | Only show what would be deleted | `false` | No |
+| `dry_run` | Only show what would be deleted | `true` | No |
 | `github_token` | GitHub token with actions:write permissions | `${{ github.token }}` | No |
 
 > [!NOTE]
-> The `dry_run` parameter defaults to `false`. Set it to `true` to preview in the log output to see what would be deleted. It will delete nothing.
+> The `dry_run` parameter defaults to `true`. It will delete nothing and you can preview in the log output to see what would be deleted.
 
 > [!TIP]
 > For regular maintenance, consider setting `runs_older_than` to 30+ days and `runs_to_keep` to 5-10 runs per workflow.
