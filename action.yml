@@ -88,9 +88,14 @@ runs:
         runs_to_keep=0
 
         while IFS='|' read -r run_id created_at workflow_name workflow_id; do
+          # Skip if workflow_id is empty or invalid
+          if [[ -z "$workflow_id" ]]; then
+            workflow_id="unknown"
+          fi
+
           # Initialize counter for this workflow if not exists
-          if [[ -z "${workflow_keep_count[$workflow_id]}" ]]; then
-            workflow_keep_count[$workflow_id]=0
+          if [[ -z "${workflow_keep_count["$workflow_id"]}" ]]; then
+            workflow_keep_count["$workflow_id"]=0
           fi
 
           # Check if run is older than cutoff date
@@ -102,11 +107,11 @@ runs:
           # Decide whether to delete this run
           should_delete=false
 
-          if [[ "${workflow_keep_count[$workflow_id]}" -ge "$RUNS_TO_KEEP" ]] && [[ "$run_older_than_cutoff" == "true" ]]; then
+          if [[ "${workflow_keep_count["$workflow_id"]}" -ge "$RUNS_TO_KEEP" ]] && [[ "$run_older_than_cutoff" == "true" ]]; then
             should_delete=true
-          elif [[ "${workflow_keep_count[$workflow_id]}" -lt "$RUNS_TO_KEEP" ]]; then
+          elif [[ "${workflow_keep_count["$workflow_id"]}" -lt "$RUNS_TO_KEEP" ]]; then
             # Keep this run (it's among the latest N runs for this workflow)
-            workflow_keep_count[$workflow_id]=$((workflow_keep_count[$workflow_id] + 1))
+            workflow_keep_count["$workflow_id"]=$((workflow_keep_count["$workflow_id"] + 1))
           fi
 
           if [[ "$should_delete" == "true" ]]; then
