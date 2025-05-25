@@ -94,7 +94,6 @@ jobs:
         id: bump_version
         uses: TriPSs/conventional-changelog-action@v6
         with:
-          github-token: ${{ secrets.GH_ACCESS_TOKEN }}
           git-message: 'Bump release to {version}'
           git-user-name: diverger
           git-user-email: diverger@live.cn
@@ -119,27 +118,27 @@ jobs:
           echo "RELEASE_TAG=${{ steps.bump_version.outputs.tag }}" >> $GITHUB_ENV
           echo "RELEASE_CHANGELOG=${{ steps.bump_version.outputs.changelog }}" >> $GITHUB_ENV
 
-      # - name: 🏗️ Create empty release or modify a release existed
-      #   id: create_release
-      #   uses: softprops/action-gh-release@v2
-      #   with:
-      #     tag_name: ${{ env.RELEASE_TAG }}
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     append_body: ${{ env.RELEASE_CHANGELOG }}
-      #     # target_commitish: main
-      #     draft: true
-
       - name: 🏗️ Create empty release or modify a release existed
         id: create_release
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
-          tag: "${{ env.RELEASE_TAG }}"
-          body: "${{ env.RELEASE_CHANGELOG }}"
-          omitBody: ${{ env.RELEASE_CHANGELOG == '' && true || false }}
-          omitName: true
-          makeLatest: false
-          omitPrereleaseDuringUpdate: true
-          allowUpdates: true
-          omitDraftDuringUpdate: true
+          tag_name: ${{ env.RELEASE_TAG }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          append_body: ${{ env.RELEASE_CHANGELOG }}
+          # target_commitish: main
           draft: true
+
+      # - name: 🏗️ Create empty release or modify a release existed
+      #   id: create_release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     token: "${{ secrets.GITHUB_TOKEN }}"
+      #     tag: "${{ env.RELEASE_TAG }}"
+      #     body: "${{ env.RELEASE_CHANGELOG }}"
+      #     omitBody: ${{ env.RELEASE_CHANGELOG == '' && true || false }}
+      #     omitName: true
+      #     makeLatest: false
+      #     omitPrereleaseDuringUpdate: true
+      #     allowUpdates: true
+      #     omitDraftDuringUpdate: true
+      #     draft: true

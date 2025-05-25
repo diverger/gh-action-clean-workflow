@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*.*.*' # Trigger on specific version tags like v1.0.0, v1.2.3, etc.
+  create: # Trigger when tags/branches are created
+  release:
+    types: [published]
 
 permissions:
   contents: write # Allow the workflow to push tags
@@ -11,6 +14,7 @@ permissions:
 jobs:
   tag_major_version:
     runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
