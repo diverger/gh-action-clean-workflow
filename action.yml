@@ -1,4 +1,4 @@
-name: '🗑️ Clean Workflow Logs'
+name: '🗑️ Clean Workflow Runs'
 description: 'Clean up old GitHub Actions workflow runs to save storage space'
 author: 'diverger'
 
