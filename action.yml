@@ -62,7 +62,7 @@ runs:
         total_runs=0
         while true; do
           echo "📄 Fetching page ${page}..."
-          response=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=100&page=${page}" --jq '.workflow_runs[] | "\(.id)~\(.created_at)~\(.name // "Unknown")~\(.workflow_id)"')
+          response=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=100&page=${page}" --jq '.workflow_runs[] | "\(.id)|\(.created_at)|\(.name // "Unknown" | @base64)|\(.workflow_id)"')
 
           if [[ -z "$response" ]]; then
             echo "📄 No more runs found on page ${page}"
@@ -80,19 +80,22 @@ runs:
         echo "📊 Total workflow runs found: ${total_runs}"
 
         # Sort runs by date (newest first) and process them
-        sort -t'~' -k2 -r "$ALL_RUNS" > "${ALL_RUNS}.sorted"
+        sort -t'|' -k2 -r "$ALL_RUNS" > "${ALL_RUNS}.sorted"
 
         # Group runs by workflow_id and keep the specified number of latest runs
         declare -A workflow_keep_count
         runs_to_delete=0
         runs_to_keep=0
 
-        while IFS='~' read -r run_id created_at workflow_name workflow_id; do
+        while IFS='|' read -r run_id created_at workflow_name_b64 workflow_id; do
           # Skip empty lines and validate essential fields
           if [[ -z "$run_id" || -z "$created_at" ]]; then
             echo "⚠️ Skipping invalid entry: run_id='$run_id', created_at='$created_at'"
             continue
           fi
+
+          # Decode the workflow name from base64
+          workflow_name=$(echo "$workflow_name_b64" | base64 -d 2>/dev/null || echo "Unknown")
 
           # Skip if workflow_id is empty or invalid
           if [[ -z "$workflow_id" ]]; then
@@ -121,7 +124,7 @@ runs:
           fi
 
           if [[ "$should_delete" == "true" ]]; then
-            echo "${run_id}~${created_at}~${workflow_name}~${workflow_id}" >> "$RUNS_TO_DELETE"
+            echo "${run_id}|${created_at}|${workflow_name_b64}|${workflow_id}" >> "$RUNS_TO_DELETE"
             runs_to_delete=$((runs_to_delete + 1))
           else
             runs_to_keep=$((runs_to_keep + 1))
@@ -145,12 +148,15 @@ runs:
         deleted_count=0
         failed_count=0
 
-        while IFS='~' read -r run_id created_at workflow_name workflow_id; do
+        while IFS='|' read -r run_id created_at workflow_name_b64 workflow_id; do
           # Skip empty lines and validate run_id
           if [[ -z "$run_id" ]]; then
             echo "⚠️ Skipping deletion: empty run_id"
             continue
           fi
+
+          # Decode the workflow name from base64
+          workflow_name=$(echo "$workflow_name_b64" | base64 -d 2>/dev/null || echo "Unknown")
 
           if [[ "$DRY_RUN" == "true" ]]; then
             echo "🔍 [DRY RUN] Would delete: Run ${run_id} (${workflow_name}) created ${created_at}"
