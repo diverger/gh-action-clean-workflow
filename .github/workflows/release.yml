@@ -116,7 +116,7 @@ jobs:
           set -e
           echo "RELEASE_VERSION=${{ steps.bump_version.outputs.version }}" >> $GITHUB_ENV
           echo "RELEASE_TAG=${{ steps.bump_version.outputs.tag }}" >> $GITHUB_ENV
-          echo "RELEASE_CHANGELOG=${{ steps.bump_version.outputs.changelog }}" >> $GITHUB_ENV
+          echo "RELEASE_CHANGELOG=${{ steps.bump_version.outputs.clean_changelog }}" >> $GITHUB_ENV
 
       # - name: 🏗️ Create empty release or modify a release existed
       #   id: create_release
