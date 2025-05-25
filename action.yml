@@ -1,0 +1,170 @@
+name: '🗑️ Clean Workflow Logs'
+description: 'Clean up old GitHub Actions workflow runs to save storage space'
+author: 'diverger'
+
+inputs:
+  runs_older_than:
+    description: 'The amount of days old to delete'
+    default: '21'
+    required: false
+  runs_to_keep:
+    description: 'The amount of latest workflow runs to keep per workflow'
+    default: '0'
+    required: false
+  dry_run:
+    description: 'Only show what would be deleted (dry run)'
+    default: 'false'
+    required: false
+  github_token:
+    description: 'GitHub token with actions:write permissions'
+    default: ${{ github.token }}
+    required: false
+
+outputs:
+  total_runs:
+    description: 'Total number of workflow runs found'
+    value: ${{ steps.cleanup.outputs.total_runs }}
+  deleted_runs:
+    description: 'Number of workflow runs deleted'
+    value: ${{ steps.cleanup.outputs.deleted_runs }}
+  kept_runs:
+    description: 'Number of workflow runs kept'
+    value: ${{ steps.cleanup.outputs.kept_runs }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Clean workflow runs
+      id: cleanup
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        DAYS_OLD: ${{ inputs.runs_older_than }}
+        RUNS_TO_KEEP: ${{ inputs.runs_to_keep }}
+        DRY_RUN: ${{ inputs.dry_run }}
+      run: |
+        echo "🧹 Cleaning ALL workflow runs older than ${DAYS_OLD} days (keeping latest ${RUNS_TO_KEEP} runs)..."
+        echo "🔍 Dry run mode: ${DRY_RUN}"
+
+        # Calculate the cutoff date
+        CUTOFF_DATE=$(date -d "${DAYS_OLD} days ago" --iso-8601)
+        echo "📅 Cutoff date: ${CUTOFF_DATE}"
+
+        # Get all workflow runs (including orphaned ones) sorted by creation date
+        echo "🔍 Fetching all workflow runs..."
+
+        # Create temporary files for processing
+        ALL_RUNS=$(mktemp)
+        RUNS_TO_DELETE=$(mktemp)
+
+        # Get all runs across all pages
+        page=1
+        total_runs=0
+        while true; do
+          echo "📄 Fetching page ${page}..."
+          response=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=100&page=${page}" --jq '.workflow_runs[] | "\(.id)|\(.created_at)|\(.name // "Unknown")|\(.workflow_id)"')
+
+          if [[ -z "$response" ]]; then
+            echo "📄 No more runs found on page ${page}"
+            break
+          fi
+
+          echo "$response" >> "$ALL_RUNS"
+          run_count=$(echo "$response" | wc -l)
+          total_runs=$((total_runs + run_count))
+          echo "📊 Found ${run_count} runs on page ${page} (total: ${total_runs})"
+
+          page=$((page + 1))
+        done
+
+        echo "📊 Total workflow runs found: ${total_runs}"
+
+        # Sort runs by date (newest first) and process them
+        sort -t'|' -k2 -r "$ALL_RUNS" > "${ALL_RUNS}.sorted"
+
+        # Group runs by workflow_id and keep the specified number of latest runs
+        declare -A workflow_keep_count
+        runs_to_delete=0
+        runs_to_keep=0
+
+        while IFS='|' read -r run_id created_at workflow_name workflow_id; do
+          # Initialize counter for this workflow if not exists
+          if [[ -z "${workflow_keep_count[$workflow_id]}" ]]; then
+            workflow_keep_count[$workflow_id]=0
+          fi
+
+          # Check if run is older than cutoff date
+          run_older_than_cutoff=false
+          if [[ "$created_at" < "$CUTOFF_DATE" ]]; then
+            run_older_than_cutoff=true
+          fi
+
+          # Decide whether to delete this run
+          should_delete=false
+
+          if [[ "${workflow_keep_count[$workflow_id]}" -ge "$RUNS_TO_KEEP" ]] && [[ "$run_older_than_cutoff" == "true" ]]; then
+            should_delete=true
+          elif [[ "${workflow_keep_count[$workflow_id]}" -lt "$RUNS_TO_KEEP" ]]; then
+            # Keep this run (it's among the latest N runs for this workflow)
+            workflow_keep_count[$workflow_id]=$((workflow_keep_count[$workflow_id] + 1))
+          fi
+
+          if [[ "$should_delete" == "true" ]]; then
+            echo "${run_id}|${created_at}|${workflow_name}|${workflow_id}" >> "$RUNS_TO_DELETE"
+            runs_to_delete=$((runs_to_delete + 1))
+          else
+            runs_to_keep=$((runs_to_keep + 1))
+          fi
+        done < "${ALL_RUNS}.sorted"
+
+        echo "📊 Summary:"
+        echo "   - Total runs: ${total_runs}"
+        echo "   - Runs to keep: ${runs_to_keep}"
+        echo "   - Runs to delete: ${runs_to_delete}"
+
+        if [[ "$runs_to_delete" -eq 0 ]]; then
+          echo "✅ No runs to delete!"
+          echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
+          echo "deleted_runs=0" >> $GITHUB_OUTPUT
+          echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Delete the runs
+        deleted_count=0
+        failed_count=0
+
+        while IFS='|' read -r run_id created_at workflow_name workflow_id; do
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "🔍 [DRY RUN] Would delete: Run ${run_id} (${workflow_name}) created ${created_at}"
+          else
+            echo "🗑️ Deleting run ${run_id} (${workflow_name}) created ${created_at}..."
+            if gh api "repos/${{ github.repository }}/actions/runs/${run_id}" -X DELETE 2>/dev/null; then
+              deleted_count=$((deleted_count + 1))
+            else
+              echo "⚠️ Failed to delete run ${run_id}"
+              failed_count=$((failed_count + 1))
+            fi
+          fi
+        done < "$RUNS_TO_DELETE"
+
+        # Cleanup temp files
+        rm -f "$ALL_RUNS" "${ALL_RUNS}.sorted" "$RUNS_TO_DELETE"
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+          echo "✅ Dry run completed! Would have deleted ${runs_to_delete} runs."
+          echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
+          echo "deleted_runs=0" >> $GITHUB_OUTPUT
+          echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Cleanup completed!"
+          echo "   - Successfully deleted: ${deleted_count} runs"
+          echo "   - Failed to delete: ${failed_count} runs"
+          echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
+          echo "deleted_runs=${deleted_count}" >> $GITHUB_OUTPUT
+          echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+        fi
+
+branding:
+  icon: 'trash-2'
+  color: 'red'
