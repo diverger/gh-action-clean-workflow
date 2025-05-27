@@ -28,7 +28,7 @@ jobs:
       contents: read
     steps:
       - name: Clean old workflow runs
-        uses: ./path/to/this/action
+        uses: diverger/gh-clean-workflow
         with:
           runs_older_than: "30"
           runs_to_keep: "5"
