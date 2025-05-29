@@ -70,7 +70,7 @@ jobs:
               NORMALIZED_TAG_VERSION=${VERSION_FROM_TAG_WITH_PREFIX#v}
               echo "Latest tag found: $VERSION_FROM_TAG_WITH_PREFIX, Normalized version: $NORMALIZED_TAG_VERSION"
               echo "RELEASE_VERSION=${NORMALIZED_TAG_VERSION}" >> $GITHUB_ENV
-              echo "RELEASE_TAG=v$RELEASE_VERSION" >> $GITHUB_ENV
+              echo "RELEASE_TAG=v${NORMALIZED_TAG_VERSION}" >> $GITHUB_ENV
             fi
           else
             # User provided a specific version. Normalize it by removing a potential 'v' prefix.
@@ -81,7 +81,7 @@ jobs:
             if git ls-remote --tags --exit-code origin "refs/tags/v${NORMALIZED_INPUT_VERSION}" > /dev/null; then
               echo "Tag 'v${NORMALIZED_INPUT_VERSION}' found."
               echo "RELEASE_VERSION=${NORMALIZED_INPUT_VERSION}" >> $GITHUB_ENV
-              echo "RELEASE_TAG=v$RELEASE_VERSION" >> $GITHUB_ENV
+              echo "RELEASE_TAG=v${NORMALIZED_INPUT_VERSION}" >> $GITHUB_ENV
             else
               # If "v<normalized_version>" is not found, it's an error, as this is the expected format.
               echo "::error::Release version tag 'v${NORMALIZED_INPUT_VERSION}' not found for input '${RELEASE_VERSION_INPUT}'. Please ensure the tag exists in the format vX.Y.Z."
@@ -116,7 +116,10 @@ jobs:
           set -e
           echo "RELEASE_VERSION=${{ steps.bump_version.outputs.version }}" >> $GITHUB_ENV
           echo "RELEASE_TAG=${{ steps.bump_version.outputs.tag }}" >> $GITHUB_ENV
-          echo "RELEASE_CHANGELOG=${{ steps.bump_version.outputs.changelog }}" >> $GITHUB_ENV
+          echo "RELEASE_CHANGELOG<<EOF" >> $GITHUB_ENV
+          cat << 'CHANGELOG_EOF' >> $GITHUB_ENV
+          ${{ steps.bump_version.outputs.changelog }}
+          CHANGELOG_EOF
 
       # - name: 🏗️ Create empty release or modify a release existed
       #   id: create_release
