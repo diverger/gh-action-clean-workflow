@@ -1,3 +1,7 @@
+## [1.3.1](https://github.com/diverger/gh-clean-workflow/compare/v1.3.0...v1.3.1) (2025-05-29)
+
+
+
 # [1.3.0](https://github.com/diverger/gh-clean-workflow/compare/v1.2.2...v1.3.0) (2025-05-29)
 
 
@@ -12,10 +16,6 @@
 
 
 ## [1.1.8](https://github.com/diverger/gh-clean-workflow/compare/v1.2.0...v1.1.8) (2025-05-25)
-
-
-
-# [1.2.0](https://github.com/diverger/gh-clean-workflow/compare/v1.1.7...v1.2.0) (2025-05-25)
 
 
 
