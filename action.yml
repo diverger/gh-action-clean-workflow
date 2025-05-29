@@ -33,6 +33,18 @@ outputs:
   kept_runs:
     description: 'Number of workflow runs kept'
     value: ${{ steps.cleanup.outputs.kept_runs }}
+  failed_deletions:
+    description: 'Number of failed deletions (if any)'
+    value: ${{ steps.cleanup.outputs.failed_deletions }}
+  cutoff_date:
+    description: 'The cutoff date used for deletion (ISO format)'
+    value: ${{ steps.cleanup.outputs.cutoff_date }}
+  dry_run:
+    description: 'Whether this was a dry run (true/false)'
+    value: ${{ steps.cleanup.outputs.dry_run }}
+  summary:
+    description: 'Brief summary of the cleanup operation'
+    value: ${{ steps.cleanup.outputs.summary }}
 
 runs:
   using: 'composite'
@@ -144,6 +156,10 @@ runs:
           echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
           echo "deleted_runs=0" >> $GITHUB_OUTPUT
           echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+          echo "failed_deletions=0" >> $GITHUB_OUTPUT
+          echo "cutoff_date=${CUTOFF_DATE}" >> $GITHUB_OUTPUT
+          echo "dry_run=${DRY_RUN}" >> $GITHUB_OUTPUT
+          echo "summary=No cleanup needed: Found ${total_runs} runs, all ${runs_to_keep} kept" >> $GITHUB_OUTPUT
           exit 0
         fi
 
@@ -177,17 +193,27 @@ runs:
         # Cleanup temp files
         rm -f "$ALL_RUNS" "${ALL_RUNS}.sorted" "$RUNS_TO_DELETE"
 
+        # Set common outputs
+        echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
+        echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+        echo "cutoff_date=${CUTOFF_DATE}" >> $GITHUB_OUTPUT
+        echo "dry_run=${DRY_RUN}" >> $GITHUB_OUTPUT
+
         if [[ "$DRY_RUN" == "true" ]]; then
           echo "✅ Dry run completed! Would have deleted ${runs_to_delete} runs."
-          echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
           echo "deleted_runs=0" >> $GITHUB_OUTPUT
-          echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+          echo "failed_deletions=0" >> $GITHUB_OUTPUT
+          echo "summary=Dry run: Found ${total_runs} runs, would delete ${runs_to_delete}, keeping ${runs_to_keep}" >> $GITHUB_OUTPUT
         else
           echo "✅ Cleanup completed!"
           echo "   - Successfully deleted: ${deleted_count} runs"
           echo "   - Failed to delete: ${failed_count} runs"
-          echo "total_runs=${total_runs}" >> $GITHUB_OUTPUT
           echo "deleted_runs=${deleted_count}" >> $GITHUB_OUTPUT
-          echo "kept_runs=${runs_to_keep}" >> $GITHUB_OUTPUT
+          echo "failed_deletions=${failed_count}" >> $GITHUB_OUTPUT
+          if [[ "$failed_count" -gt 0 ]]; then
+            echo "summary=Cleanup completed: ${deleted_count} deleted, ${runs_to_keep} kept, ${failed_count} failed" >> $GITHUB_OUTPUT
+          else
+            echo "summary=Cleanup completed: ${deleted_count} deleted, ${runs_to_keep} kept" >> $GITHUB_OUTPUT
+          fi
         fi
 
